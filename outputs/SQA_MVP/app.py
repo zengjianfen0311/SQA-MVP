@@ -6,6 +6,7 @@ import binascii
 import json
 import logging
 import ipaddress
+import re
 import secrets
 import sqlite3
 import threading
@@ -19,6 +20,8 @@ from urllib.parse import parse_qs, quote, urlsplit
 from backup import backup, restore
 from imports import IMPORT_FILES, PROJECT, STAGE, VERSION
 from store import LOCAL_TZ, MAX_FILE, Problem, Store, clean, need, owner
+from store import reviewer
+from bug_audit import BugAudit
 from sync import PilotSync
 from library import LocalLibrary
 from governance import Governance
@@ -39,6 +42,7 @@ class PilotServer(ThreadingHTTPServer):
     def __init__(self, port, store, samples=None, sync_config=None, library_config=None):
         super().__init__(("127.0.0.1", port), Handler)
         self.store = store
+        self.bug_audit = BugAudit(store)
         self.samples = samples
         self.sync = PilotSync(self, sync_config) if sync_config else None
         self.library = LocalLibrary(library_config) if library_config else None
@@ -251,6 +255,17 @@ class Handler(BaseHTTPRequestHandler):
                     "Set-Cookie": f"sqa_session={new_token}; Path=/; HttpOnly; SameSite=Strict; Max-Age={SESSION_AGE}"})
                 return
             need(user, "请先登录", 401)
+            if not post and path.startswith("/api/bug-audit/"):
+                reviewer(user)
+                if path == "/api/bug-audit/runs":
+                    values = parse_qs(parsed.query).get("limit", ["50"])
+                    need(len(values) == 1 and values[0].isascii() and values[0].isdecimal(), "limit 格式无效")
+                    self.write_json(self.server.bug_audit.list_runs(int(values[0])))
+                    return
+                match = re.fullmatch(r"/api/bug-audit/runs/([1-9][0-9]*)", path)
+                need(match is not None, "接口不存在", 404)
+                self.write_json(self.server.bug_audit.get_run(int(match.group(1))))
+                return
             if not post and path.startswith("/api/crash-view/"):
                 owner(user)
                 name = path.rsplit("/", 1)[-1]

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "items": [
+    {
+      "bug_id": "SIM-101",
+      "fields": [
+        {"name": "Bug Standard Review of Testing", "preflight_value": "Pending", "status": "written", "readback_value": "Pass"},
+        {"name": "Bug quality audit", "preflight_value": "Pending", "status": "unknown", "readback_value": null}
+      ]
+    }
+  ]
+}

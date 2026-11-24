@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "status": "partial",
+  "target": "Synthetic notification target",
+  "message_id": "SIM-MSG-1",
+  "idempotency_key": "SIM-IDEM-1",
+  "attachment_status": "mismatch",
+  "summary_hash": "0123456789abcdef0123456789abcdef"
+}

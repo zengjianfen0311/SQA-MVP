@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "scope_status": "complete",
+  "items": [
+    {
+      "bug_id": "SIM-101",
+      "snapshot": {"title": "Synthetic audit case", "state": "Open", "severity": "Major"},
+      "history": [
+        {"id": "SIM-H-1", "kind": "Change", "changed_at": "2026-11-24T09:15:00+08:00", "field": "State", "old_value": "New", "new_value": "Open"},
+        {"id": "SIM-H-2", "kind": "Add", "changed_at": "2026-11-24T10:15:00+08:00", "field": "State", "old_value": null, "new_value": "New"},
+        {"id": "SIM-H-3", "kind": "Change", "changed_at": "2026-11-24T11:15:00+08:00", "field": "Developer", "old_value": "A", "new_value": "B"},
+        {"id": "SIM-H-4", "kind": "Change", "changed_at": "2026-11-24T12:15:00+08:00", "field": "Severity", "old_value": "Major", "new_value": "Major"}
+      ],
+      "evidence": {"history": "complete", "comments": "partial", "attachments": "not_requested"}
+    }
+  ]
+}

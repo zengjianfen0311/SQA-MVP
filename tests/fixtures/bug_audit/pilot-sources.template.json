@@ -1,0 +1,17 @@
+{
+  "metrics": {
+    "backup": "待补充/原始指标看板备份.json",
+    "cutoff": ""
+  },
+  "pr": {
+    "summary": "待补充/PR发布汇总.csv",
+    "items": "待补充/PR发布明细.csv",
+    "matches": "待补充/PR匹配结果.csv",
+    "audit": "待补充/PR逐规则审计.csv",
+    "cutoff": "2.57.64"
+  },
+  "bugs": {
+    "snapshot": "待补充/原始TP_Bug快照.csv",
+    "cutoff": "待补充原始快照实际截止日期"
+  }
+}

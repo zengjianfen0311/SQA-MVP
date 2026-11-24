@@ -653,50 +653,111 @@ function reviewDialog(kind,batch,key,rule,title) {
 }
 
 async function showBugs() {
-  const {batch,payload,reviews} = await api("bugs");
+  const [{batch,payload,reviews},runs] = await Promise.all([api("bugs"),api("bug-audit/runs")]);
   const head = heading("Bug 审计","以 TP 原始快照复算 Race 3 / 3S RID 阶段缺陷。");
-  if (!payload) return head + empty("缺陷");
-  const b = payload.stats;
-  const html = head + `<p class="notice caution">截至 ${esc(payload.cutoff)} · 原始阶段标签 ${esc(payload.scope)} · 2.57.64 构建关联待补证。</p>
-    <div class="cards">${card("有效缺陷",b.effective,b.rid_rows + " 条 RID 原始记录")}
-    ${card("待解决",b.pending,"Blocking " + b.blocking + " · Critical " + b.critical)}
-    ${card("待验证",b.testing,"待复现 "+b.reproduce)}
-    ${card("管理关闭率",b.closure === null ? "—" : b.closure.toFixed(2) + "%","Verified + Fixed "+b.verified_fixed)}</div>
-    <section class="panel"><div class="filter">${select("缺陷状态","bug-state",[["all","全部有效缺陷"],["pending","研发待解决"],
-    ["In Testing","待验证"],["Reproduce","待复现"]],"pending")}${field("查找 Bug ID 或标题","bug-query")}</div>
-    <div id="bug-body"></div></section>`;
+  const html = head + `<div class="bug-audit-tabs" role="tablist" aria-label="Bug 审计视图">
+      <button type="button" class="quiet" role="tab" aria-selected="true" data-bug-audit-view="snapshot">当前快照</button>
+      <button type="button" class="quiet" role="tab" aria-selected="false" data-bug-audit-view="runs">每日审计运行</button>
+    </div><div id="bug-audit-content"></div>`;
   return {html,mount() {
-    const status = document.querySelector('[name="bug-state"]');
-    const query = document.querySelector('[name="bug-query"]');
-    function draw() {
-      const waiting = ["New","In Progress","In Review"];
-      const key = query.value.toLowerCase();
-      const rows = payload.rows.filter(row => {
-        const state = row["Entity State"];
-        const visible = status.value === "all" || status.value === state || (status.value === "pending" && waiting.includes(state));
-        return visible && (row.ID + " " + row.Name).toLowerCase().includes(key);
-      });
-      $("bug-body").innerHTML = `<p class="meta">显示 ${rows.length} 条</p>` +
-        table(["Bug","严重度","状态 / 团队","复核",""],rows.map(row => {
-          const review = reviews.find(r => r.bug_id === row.ID);
-          return [`<strong>#${esc(row.ID)}</strong><p>${esc(row.Name)}</p>`,
-            tag(row.Severity,["Blocking","Critical"].includes(row.Severity) ? "red" : ""),
-            `${tag(row["Entity State"])}<p class="meta">${esc(row.Teams)}</p>`,
-            review ? `${tag(review.result,"blue")}<p>${esc(review.evidence)}</p>` : tag("待复核"),
-            `<div class="actions">${button("复核","bug-review:"+row.ID,true)}
-            ${own() ? button("创建整改","bug-task:"+row.ID,true) : ""}</div>`];
-        }));
+    const content = $("bug-audit-content");
+    function snapshotHtml() {
+      if (!payload) return empty("缺陷");
+      const b = payload.stats;
+      return `<p class="notice caution">截至 ${esc(payload.cutoff)} · 原始阶段标签 ${esc(payload.scope)} · 2.57.64 构建关联待补证。</p>
+        <div class="cards">${card("有效缺陷",b.effective,b.rid_rows + " 条 RID 原始记录")}
+        ${card("待解决",b.pending,"Blocking " + b.blocking + " · Critical " + b.critical)}
+        ${card("待验证",b.testing,"待复现 "+b.reproduce)}
+        ${card("管理关闭率",b.closure === null ? "—" : b.closure.toFixed(2) + "%","Verified + Fixed "+b.verified_fixed)}</div>
+        <section class="panel"><div class="filter">${select("缺陷状态","bug-state",[["all","全部有效缺陷"],["pending","研发待解决"],
+        ["In Testing","待验证"],["Reproduce","待复现"]],"pending")}${field("查找 Bug ID 或标题","bug-query")}</div>
+        <div id="bug-body"></div></section>`;
     }
-    status.onchange = draw;
-    query.oninput = draw;
-    $("bug-body").onclick = event => {
-      const marker = event.target.closest("[data-action]")?.dataset.action;
-      if (!marker) return;
-      const [action,id] = marker.split(":");
-      if (action === "bug-review") reviewDialog("bugs",batch,id,"","Bug #" + id);
-      if (action === "bug-task") createTask("bugs",batch,id,"跟踪 Bug #" + id);
-    };
-    draw();
+    function attachSnapshot() {
+      const status = document.querySelector('[name="bug-state"]');
+      const query = document.querySelector('[name="bug-query"]');
+      if (!status || !query) return;
+      function draw() {
+        const waiting = ["New","In Progress","In Review"];
+        const key = query.value.toLowerCase();
+        const rows = payload.rows.filter(row => {
+          const state = row["Entity State"];
+          const visible = status.value === "all" || status.value === state || (status.value === "pending" && waiting.includes(state));
+          return visible && (row.ID + " " + row.Name).toLowerCase().includes(key);
+        });
+        $("bug-body").innerHTML = `<p class="meta">显示 ${rows.length} 条</p>` +
+          table(["Bug","严重度","状态 / 团队","复核",""],rows.map(row => {
+            const review = reviews.find(r => r.bug_id === row.ID);
+            return [`<strong>#${esc(row.ID)}</strong><p>${esc(row.Name)}</p>`,
+              tag(row.Severity,["Blocking","Critical"].includes(row.Severity) ? "red" : ""),
+              `${tag(row["Entity State"])}<p class="meta">${esc(row.Teams)}</p>`,
+              review ? `${tag(review.result,"blue")}<p>${esc(review.evidence)}</p>` : tag("待复核"),
+              `<div class="actions">${button("复核","bug-review:"+row.ID,true)}
+              ${own() ? button("创建整改","bug-task:"+row.ID,true) : ""}</div>`];
+          }));
+      }
+      status.onchange = draw;
+      query.oninput = draw;
+      $("bug-body").onclick = event => {
+        const marker = event.target.closest("[data-action]")?.dataset.action;
+        if (!marker) return;
+        const [action,id] = marker.split(":");
+        if (action === "bug-review") reviewDialog("bugs",batch,id,"","Bug #" + id);
+        if (action === "bug-task") createTask("bugs",batch,id,"跟踪 Bug #" + id);
+      };
+      draw();
+    }
+    function statusTag(value) {
+      const labels = {running:"进行中",complete:"已完成",partial:"部分完成",blocked:"受阻",failed:"失败",
+        pending:"待处理",verified:"已核验",not_required:"不适用",unknown:"结果未知",conflict:"冲突",
+        written:"已写入待回读",sent:"已发送待回读",skipped:"未执行",mismatch:"附件不匹配",
+        not_requested:"未请求",failed:"失败"};
+      const colors = {complete:"green",verified:"green",partial:"yellow",blocked:"red",failed:"red",conflict:"red",unknown:"yellow"};
+      return tag(labels[value] || value, colors[value] || "");
+    }
+    function runsHtml() {
+      if (!runs.length) return `<section class="panel bug-audit-runs"><h2>每日审计运行</h2>${empty("每日审计运行")}</section>`;
+      return `<section class="panel bug-audit-runs"><div class="display-line"><h2>每日审计运行</h2><span class="meta">${runs.length} 次运行</span></div>
+        <div class="table-wrap"><table><thead><tr><th>运行窗口</th><th>范围</th><th>采集 / 审计</th><th>TP 回填</th><th>飞书通知</th><th>状态</th><th></th></tr></thead><tbody>
+        ${runs.map(run => `<tr><td>${esc(run.window.start)}<br>至 ${esc(run.window.end)}</td>
+          <td>${esc(JSON.stringify(run.scope))}</td><td>${statusTag(run.collection_status)} / ${statusTag(run.audit_status)}</td>
+          <td>${statusTag(run.writeback_status)}</td><td>${statusTag(run.notification_status)}</td><td>${statusTag(run.status)}</td>
+          <td>${button("查看","bug-run:" + run.id,true)}</td></tr>`).join("")}</tbody></table></div>
+        <div id="bug-audit-run-detail"></div></section>`;
+    }
+    async function loadRun(id) {
+      const detail = await api("bug-audit/runs/" + encodeURIComponent(id));
+      const target = $("bug-audit-run-detail");
+      const receipts = detail.events.filter(event => event.stage === "notification");
+      target.innerHTML = `<section class="bug-run-detail"><div class="display-line"><h3>运行 #${esc(detail.id)} · ${statusTag(detail.status)}</h3>
+          <span class="meta">规则 ${esc(detail.rule_version)} · ${esc(detail.changed)}</span></div>
+          <p class="meta">采集 ${statusTag(detail.collection_status)} · 审计 ${statusTag(detail.audit_status)} · TP ${statusTag(detail.writeback_status)} · 飞书 ${statusTag(detail.notification_status)}</p>
+          ${receipts.length ? `<p class="meta">通知回执：${receipts.map(event => `${statusTag(event.details.status)} · ${esc(event.details.target || "目标未记录")} · ${esc(event.details.message_id || "消息待回读")} · 附件 ${statusTag(event.details.attachment_status || "pending")}`).join("；")}</p>` : ""}
+          ${detail.items.length ? detail.items.map(item => `<article class="bug-audit-item"><h4>Bug #${esc(item.bug_id)} ${esc(item.snapshot.title || "")}</h4>
+            <p class="meta">${esc(item.inclusion_reason)} · 证据 ${esc(JSON.stringify(item.evidence))}</p>
+            <div class="table-wrap"><table><thead><tr><th>History</th><th>字段</th><th>旧值 → 新值</th><th>审计字段</th><th>原值 / 拟值</th><th>状态 / 回读</th></tr></thead><tbody>
+            ${item.history.map(history => `<tr><td>${esc(history.id)}<br>${esc(history.changed_at)}</td><td>${esc(history.field)}</td>
+              <td>${esc(history.old_value)} → ${esc(history.new_value)}</td><td colspan="3"></td></tr>`).join("")}
+            ${item.fields.map(field => `<tr><td colspan="3"></td><td>${esc(field.name)}${field.ready ? " · ready" : " · pending"}${field.conflict ? " · 冲突" : ""}</td>
+              <td>${esc(field.original_value)} → ${esc(field.proposed_value)}${field.reason ? `<p class="meta">${esc(field.reason)}</p>` : ""}</td>
+              <td>${statusTag(field.status)}${field.readback_value === null ? "" : `<p class="meta">回读：${esc(field.readback_value)}</p>`}</td></tr>`).join("")}
+            </tbody></table></div></article>`).join("") : empty("Bug 候选")}</section>`;
+    }
+    async function setView(view) {
+      content.parentElement.querySelectorAll("[data-bug-audit-view]").forEach(button => {
+        button.setAttribute("aria-selected", String(button.dataset.bugAuditView === view));
+      });
+      content.innerHTML = view === "runs" ? runsHtml() : snapshotHtml();
+      if (view === "snapshot") attachSnapshot();
+    }
+    content.innerHTML = snapshotHtml();
+    attachSnapshot();
+    content.parentElement.addEventListener("click", event => {
+      const view = event.target.closest("[data-bug-audit-view]")?.dataset.bugAuditView;
+      if (view) return setView(view);
+      const action = event.target.closest("[data-action]")?.dataset.action;
+      if (action?.startsWith("bug-run:")) loadRun(action.split(":")[1]).catch(error => notify(error.message));
+    });
   }};
 }
 

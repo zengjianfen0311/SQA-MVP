@@ -164,3 +164,12 @@ dialog h2{font-size:1.27rem}
 @media(max-width:680px){#nav{display:flex;flex-direction:column;max-height:39vh;overflow-y:auto}#nav summary{padding:.48rem .6rem}#nav button{white-space:normal}.sidebar{max-height:none}}
 
 .issue-card{margin:1rem 0}.issue-edition{padding:.6rem 0;border-top:1px solid #dce5ed}.issue-edition summary{cursor:pointer;overflow-wrap:anywhere}.issue-card .asset-file{overflow-wrap:anywhere}
+.bug-audit-tabs{display:flex;gap:.45rem;margin:0 0 1rem;border-bottom:1px solid var(--border)}
+.bug-audit-tabs button{border-radius:6px 6px 0 0;border-color:var(--border);border-bottom:0}
+.bug-audit-tabs button[aria-selected=true]{background:var(--blue);color:#fff}
+.bug-audit-runs{overflow-wrap:anywhere}
+.bug-audit-runs .table-wrap table{min-width:780px}
+.bug-run-detail{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)}
+.bug-audit-item{padding:.8rem 0;border-top:1px solid var(--border)}
+.bug-audit-item h4{margin:.1rem 0 .35rem;font-size:.96rem}
+@media(max-width:680px){.bug-audit-item .table-wrap{margin-right:-.5rem}}
