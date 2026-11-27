@@ -718,12 +718,19 @@ async function showBugs() {
     function runsHtml() {
       if (!runs.length) return `<section class="panel bug-audit-runs"><h2>每日审计运行</h2>${empty("每日审计运行")}</section>`;
       return `<section class="panel bug-audit-runs"><div class="display-line"><h2>每日审计运行</h2><span class="meta">${runs.length} 次运行</span></div>
-        <div class="table-wrap"><table><thead><tr><th>运行窗口</th><th>范围</th><th>采集 / 审计</th><th>TP 回填</th><th>飞书通知</th><th>状态</th><th></th></tr></thead><tbody>
-        ${runs.map(run => `<tr><td>${esc(run.window.start)}<br>至 ${esc(run.window.end)}</td>
+        <div class="table-wrap"><table><thead><tr><th>运行窗口 / 执行方式</th><th>范围</th><th>采集 / 审计</th><th>TP 回填</th><th>飞书通知</th><th>状态</th><th></th></tr></thead><tbody>
+        ${runs.map(run => `<tr><td>${esc(run.window.start)}<br>至 ${esc(run.window.end)}${executionHtml(run)}</td>
           <td>${esc(JSON.stringify(run.scope))}</td><td>${statusTag(run.collection_status)} / ${statusTag(run.audit_status)}</td>
           <td>${statusTag(run.writeback_status)}</td><td>${statusTag(run.notification_status)}</td><td>${statusTag(run.status)}</td>
           <td>${button("查看","bug-run:" + run.id,true)}</td></tr>`).join("")}</tbody></table></div>
         <div id="bug-audit-run-detail"></div></section>`;
+    }
+    function executionHtml(run) {
+      const execution = run.execution || {producer:"legacy",mode:"legacy"};
+      const modes = {legacy:"外部执行器台账",demo:"合成演示",dry_run:"在线只读分析",apply:"授权执行"};
+      const stages = {collect:"采集",audit:"审计",writeback:"写回与回读",notify:"通知与附件核验",planned:"计划已生成",partial:"待恢复 / 对账",complete:"所选模式已完成"};
+      const note = ["demo","dry_run"].includes(execution.mode) ? " · 未执行真实回填和通知" : "";
+      return `<p class="meta">${esc(modes[execution.mode] || execution.mode)} · ${esc(execution.profile || execution.producer)}${esc(note)}${execution.stage ? `<br>阶段：${esc(stages[execution.stage] || execution.stage)}` : ""}</p>`;
     }
     async function loadRun(id) {
       const detail = await api("bug-audit/runs/" + encodeURIComponent(id));
@@ -731,6 +738,7 @@ async function showBugs() {
       const receipts = detail.events.filter(event => event.stage === "notification");
       target.innerHTML = `<section class="bug-run-detail"><div class="display-line"><h3>运行 #${esc(detail.id)} · ${statusTag(detail.status)}</h3>
           <span class="meta">规则 ${esc(detail.rule_version)} · ${esc(detail.changed)}</span></div>
+          ${executionHtml(detail)}
           <p class="meta">采集 ${statusTag(detail.collection_status)} · 审计 ${statusTag(detail.audit_status)} · TP ${statusTag(detail.writeback_status)} · 飞书 ${statusTag(detail.notification_status)}</p>
           ${receipts.length ? `<p class="meta">通知回执：${receipts.map(event => `${statusTag(event.details.status)} · ${esc(event.details.target || "目标未记录")} · ${esc(event.details.message_id || "消息待回读")} · 附件 ${statusTag(event.details.attachment_status || "pending")}`).join("；")}</p>` : ""}
           ${detail.items.length ? detail.items.map(item => `<article class="bug-audit-item"><h4>Bug #${esc(item.bug_id)} ${esc(item.snapshot.title || "")}</h4>

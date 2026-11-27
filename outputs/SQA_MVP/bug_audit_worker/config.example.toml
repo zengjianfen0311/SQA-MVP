@@ -1,0 +1,51 @@
+# 复制到部署配置目录；所有相对路径以该文件目录为基准。
+[worker]
+profile = "firmware"
+data_dir = "./data"
+runs_dir = "./runs"
+allow_apply = false
+first_apply_date = ""
+legacy_quiesced = false
+legacy_last_run_date = ""
+
+[scope]
+project_id = 1
+project_name = "填写实际项目名称"
+team_ids = [2]
+team_names = ["填写实际团队名称"]
+
+[tp]
+base_url = "https://tp.example.invalid"
+context_id = "填写当前项目的 Context ID"
+token_env = "BUG_AUDIT_TP_TOKEN"
+
+[model]
+base_url = "https://model.example.invalid/v1"
+api_style = "chat_completions" # 或 responses；不自动切换
+name = "填写公司模型名称"
+key_env = "BUG_AUDIT_MODEL_KEY"
+structured_mode = "schema" # 仅明确不支持 schema 时配置 json
+max_input_chars = 120000
+max_output_tokens = 4000
+
+[feishu]
+base_url = "https://open.feishu.cn"
+app_id = "填写机器人应用 ID"
+secret_env = "BUG_AUDIT_FEISHU_SECRET"
+chat_id = "填写目标群 ID"
+chat_name = "填写目标群名称"
+bot_open_id = "填写机器人 open_id"
+mentions = [{open_id = "填写被提及人员 open_id", name = "填写姓名"}]
+
+[transport]
+timeout = 30
+max_bytes = 8388608
+max_retries = 2
+allow_loopback_http = false # 仅用于本机模拟服务，不能放宽远端 TLS
+
+[limits]
+page_size = 200
+max_pages = 1000
+batch_size = 20
+max_model_calls = 500
+max_features = 10000

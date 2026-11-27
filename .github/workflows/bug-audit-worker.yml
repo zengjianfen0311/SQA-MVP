@@ -1,0 +1,29 @@
+name: Bug 审计 Worker 离线验证
+on:
+  push:
+    paths: ['outputs/SQA_MVP/bug_audit*', 'outputs/SQA_MVP/bug_audit_worker/**', 'outputs/SQA_MVP/requirements-bug-audit-worker.txt', 'outputs/SQA_MVP/web/app.js', 'tests/**', '.github/workflows/bug-audit-worker.yml']
+  pull_request:
+    paths: ['outputs/SQA_MVP/bug_audit*', 'outputs/SQA_MVP/bug_audit_worker/**', 'outputs/SQA_MVP/requirements-bug-audit-worker.txt', 'outputs/SQA_MVP/web/app.js', 'tests/**', '.github/workflows/bug-audit-worker.yml']
+permissions:
+  contents: read
+jobs:
+  offline:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        python: ['3.11', '3.13']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: python -m pip install -r outputs/SQA_MVP/requirements-bug-audit-worker.txt
+      - run: python -X utf8 -m unittest discover -s tests -p "test_bug_audit*.py" -v
+      - run: node --check outputs/SQA_MVP/web/app.js
+      - run: git -c core.whitespace=cr-at-eol diff --check

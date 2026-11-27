@@ -343,13 +343,15 @@ class BugAudit:
         need(type(limit) is int and 1 <= limit <= 200, "limit 须为 1–200")
         with self.store.connection() as db:
             rows = db.execute("SELECT * FROM bug_audit_runs ORDER BY window_start DESC,id DESC LIMIT ?", (limit,)).fetchall()
-            return [self._run(row) for row in rows]
+            metadata = self._executions(db)
+            return [{**self._run(row), "execution": metadata.get(row["id"], self._legacy_execution())} for row in rows]
 
     def get_run(self, run_id):
         with self.store.connection() as db:
             row = self._run_row(db, run_id)
             items = db.execute("SELECT * FROM bug_audit_items WHERE run_id=? ORDER BY bug_id", (run_id,)).fetchall()
             result = self._run(row)
+            result["execution"] = self._executions(db).get(run_id, self._legacy_execution())
             result["items"] = []
             result["events"] = [{"event_id": event["event_id"], "stage": event["stage"],
                                  "created": event["created"], "details": json.loads(event["details_json"])}
@@ -367,6 +369,18 @@ class BugAudit:
                                 "readback_value": json.loads(f["readback_json"]) if f["readback_json"] else None} for f in fields],
                 })
             return result
+
+    @staticmethod
+    def _legacy_execution():
+        return {"producer": "legacy", "mode": "legacy", "profile": "", "stage": ""}
+
+    @staticmethod
+    def _executions(db):
+        # 旧库只读兼容；不从 Web 导入 Worker 或接触其凭据/检查点。
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='bug_audit_worker_jobs'").fetchone():
+            return {}
+        return {row["run_id"]: {"producer": "worker", "mode": row["mode"], "profile": row["profile"], "stage": row["stage"]}
+                for row in db.execute("SELECT run_id,mode,profile,stage FROM bug_audit_worker_jobs")}
 
     @staticmethod
     def _run(row):

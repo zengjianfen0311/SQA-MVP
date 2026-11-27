@@ -1,0 +1,2 @@
+# Windows 等无系统 IANA 数据的环境也能使用 Asia/Shanghai。
+tzdata==2026.6
